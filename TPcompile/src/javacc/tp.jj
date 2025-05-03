@@ -1,0 +1,274 @@
+
+
+// Définition des options du parser
+options {
+    STATIC = false;  // Les méthodes du parser ne sont pas statiques, permettant une gestion d'état
+    LOOKAHEAD = 4;    // Profondeur de lookahead pour la grammaire, permettant des décisions avec 4 symboles d'anticipation
+}
+
+// Début du parser
+PARSER_BEGIN(EXPParser)
+package javacc;
+import java.io.*;
+import java.util.*;
+
+// Déclaration de la classe principale EXPParser
+public class EXPParser {
+    private static StringBuilder arbreSyntaxique = new StringBuilder();  // StringBuilder pour stocker l'arbre syntaxique en texte
+    private static int profondeur = 0;  // Variable pour suivre la profondeur de l'arbre syntaxique
+
+    // Méthode principale du programme
+    public static void main(String[] args) throws ParseException {
+       
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
+            // Boucle infinie pour permettre à l'utilisateur de saisir plusieurs entrées
+            while (true) {
+                // Affichage des options disponibles à l'utilisateur
+              System.out.println("=== Analyseur Syntaxique ===");
+             System.out.println("Selectionnez une option :");
+            System.out.println("1 - Analyser une chaine saisie manuellement");
+               System.out.println("2 - Analyser le fichier 'pgmsrc.exp' dans le repertoire actuel");
+           System.out.println("0 - Quitter");
+          System.out.print("Votre choix >");
+    
+                String input = reader.readLine().trim();  // Lecture de l'entrée de l'utilisateur
+
+                if (input.equalsIgnoreCase("0")) {  // Si l'utilisateur entre "exit", quitter le programme
+                    System.out.println("Fin du programme.");
+                    break;
+                }
+
+                // Si l'utilisateur choisit l'option 1 (analyser une chaîne saisie)
+                if (input.equals("1")) {
+                    System.out.print("Entrez la chaine a analyser :");
+                    String chainInput = reader.readLine().trim();  // Lire la chaîne à analyser
+                    EXPParser parser = new EXPParser(new StringReader(chainInput));  // Créer un nouveau parser avec la chaîne d'entrée
+                    try {
+                        System.out.println("Analyse commence...");
+                        parser.Z();  // Appel à la méthode Z() pour commencer l'analyse syntaxique
+                        System.out.println("Analyse reussie !");
+                        ecrireArbreSyntaxique();  // Sauvegarde de l'arbre syntaxique dans un fichier
+                    } catch (ParseException e) {
+                        System.out.println("Erreur de syntaxe detectee : " + e.getMessage());  // Gestion des erreurs de syntaxe
+                    }
+                }
+                // Si l'utilisateur choisit l'option 2 (analyser le fichier pgmsrc.exp)
+                else if (input.equals("2")) {
+                    System.out.println("Le programme va analyser le fichier 'pgmsrc.exp' situé dans le meme repertoire.");
+                    String filePath = "pgmsrc.exp";  // Fichier à analyser
+
+                    String fileContent = readFile(filePath);  // Lire le contenu du fichier
+
+                    if (fileContent != null) {
+                        // Créer un BufferedReader pour lire le contenu du fichier ligne par ligne
+                        BufferedReader fileReader = new BufferedReader(new StringReader(fileContent));
+                        String line;
+                        // Analyser chaque ligne du fichier
+                        while ((line = fileReader.readLine()) != null) {
+                            System.out.println("Ligne lue : " + line);  // Afficher la ligne lue
+                            EXPParser parser = new EXPParser(new StringReader(line));  // Créer un nouveau parser pour chaque ligne
+                            try {
+                                System.out.println("Analyse commence...");
+                                parser.Z();  // Appel à la méthode Z() pour analyser la ligne
+                                System.out.println("Analyse reussie !");
+                                ecrireArbreSyntaxique();  // Sauvegarde de l'arbre syntaxique
+                            } catch (ParseException e) {
+                                System.out.println("Erreur de syntaxe detectee : " + e.getMessage());  // Gestion des erreurs de syntaxe
+                            }
+                        }
+                    } else {
+                        System.out.println("Fichier non trouve ou erreur de lecture.");
+                    }
+                } else {
+                    System.out.println("Choix invalide, veuillez entrer '1' ou '2'.");  // Si l'utilisateur fait un choix invalide
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Erreur lors de la lecture de l'entrée : " + e.getMessage());  // Gestion des erreurs d'entrée/sortie
+        }
+    }
+
+    // Méthode pour lire un fichier et retourner son contenu sous forme de chaîne
+   //     Ici, on considère qu'il y a un mot par ligne
+    private static String readFile(String filePath) {
+        StringBuilder content = new StringBuilder();  // StringBuilder pour accumuler le contenu du fichier
+        try (BufferedReader fileReader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = fileReader.readLine()) != null) {
+                content.append(line).append("\n");  // Ajouter chaque ligne avec un retour à la ligne
+            }
+        } catch (IOException e) {
+            System.out.println("Erreur de lecture du fichier : " + e.getMessage());  // Gestion des erreurs de lecture
+            return null;  // Retourner null en cas d'erreur
+        }
+        return content.toString();  // Retourner le contenu complet du fichier
+    }
+
+    // Méthode pour écrire l'arbre syntaxique dans un fichier
+    private static void ecrireArbreSyntaxique() {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("arbresyntaxique.txt", true))) {
+            writer.write(arbreSyntaxique.toString());  // Écrire l'arbre syntaxique dans le fichier
+            writer.write("\n\n");  // Ajouter un double saut de ligne pour séparer chaque arbre
+            System.out.println("Arbre syntaxique ajouté au fichier 'arbresyntaxique.txt'.");
+            arbreSyntaxique.setLength(0);  // Réinitialiser le StringBuilder pour le prochain arbre
+        } catch (IOException e) {
+            System.out.println("Erreur lors de l'écriture de l'arbre syntaxique : " + e.getMessage());  // Gestion des erreurs d'écriture
+        }
+    }
+
+    // Méthode pour ajouter un noeud à l'arbre syntaxique avec une indentation
+    private static void ajouterNoeud(String noeud) {
+        for (int i = 0; i < profondeur; i++) {
+            arbreSyntaxique.append("    ");  // Ajouter 4 espaces pour chaque niveau de profondeur
+        }
+        arbreSyntaxique.append("└── ").append(noeud).append("\n");  // Ajouter le noeud avec l'indentation appropriée
+    }
+
+    // Méthode pour augmenter la profondeur de l'arbre (imbrication des noeuds)
+    private static void augmenterProfondeur() {
+        profondeur++;
+    }
+
+    // Méthode pour diminuer la profondeur de l'arbre
+    private static void diminuerProfondeur() {
+        if (profondeur > 0) {
+            profondeur--;  // Réduire la profondeur
+        }
+    }
+}
+
+// Définition de la grammaire du parser
+PARSER_END(EXPParser)
+
+// Tokens définis pour l'analyse lexicale
+TOKEN : { <ID : ["A"-"Z"] (["A"-"Z"] | ["a"-"z"] | ["0"-"9"])* "_" > }
+TOKEN : { <OP : "+" | "*" | "/" > }
+TOKEN : { <REL : ">" | "<" > }
+TOKEN : { <DELIM1 : "(" | ")" > }
+TOKEN : { <DELIM2 : "{" | "}" > }
+SKIP : { " " | "\t" | "\n" | "\r" }  // Ignorer les espaces, tabulations et retours à la ligne
+
+// Règles de la grammaire
+
+
+void Z() : {
+} {
+    { 
+        augmenterProfondeur();  // Augmenter la profondeur avant d'ajouter un nœud
+        ajouterNoeud("Z");  // Ajouter un nœud Z à l'arbre
+    }
+    M()  // Appeler la méthode M()
+    <EOF>  // Fin du fichier ou de la chaîne
+    { diminuerProfondeur(); }  // Diminuer la profondeur après l'analyse
+}
+
+void M() : {
+} {
+    { 
+        augmenterProfondeur();  // Augmenter la profondeur avant d'ajouter un nœud
+        ajouterNoeud("M");  // Ajouter un nœud M à l'arbre
+    }
+    [ S() ]  // Appeler la méthode S() si elle est présente (gestion du mot vide)
+    { diminuerProfondeur(); }  // Diminuer la profondeur après l'analyse
+}
+
+
+// Règle de la méthode S
+void S() : {
+} {
+    { 
+        EXPParser.ajouterNoeud("S");  // Ajouter un noeud S à l'arbre
+        augmenterProfondeur();  // Augmenter la profondeur
+    }
+    ( B() <DELIM2> A() | A() <DELIM1> B() )  // Deux options pour la règle S
+    { diminuerProfondeur(); }
+}
+
+// Règle de la méthode A
+void A() : {
+} {
+    { 
+        EXPParser.ajouterNoeud("A");  // Ajouter un noeud A
+        augmenterProfondeur();  // Augmenter la profondeur
+    }
+    ( B() X() | <REL> XPrime() )  // Options pour la règle A
+    { diminuerProfondeur(); }
+}
+
+// Règle de la méthode X
+void X() : {
+} {
+    { 
+        EXPParser.ajouterNoeud("X");  // Ajouter un noeud X
+        augmenterProfondeur();  // Augmenter la profondeur
+    }
+    ( <OP> APrime() | <DELIM2> A() <REL> XPrime() )  // Options pour la règle X
+    { diminuerProfondeur(); }
+}
+
+// Règle de la méthode XPrime
+void XPrime() : {
+} {
+    { 
+        EXPParser.ajouterNoeud("X'");  // Ajouter un noeud X'
+        augmenterProfondeur();  // Augmenter la profondeur
+    }
+    ( S() APrime() | APrime() )  // Options pour la règle X'
+    { diminuerProfondeur(); }
+}
+
+// Règle de la méthode APrime
+void APrime() : {
+} {
+    { 
+        EXPParser.ajouterNoeud("A'");  // Ajouter un noeud A'
+        augmenterProfondeur();  // Augmenter la profondeur
+    }
+    ( <DELIM2> B() <REL> XPrime() | { } )  // Options pour la règle A'
+    { diminuerProfondeur(); }
+}
+
+// Règle de la méthode B
+void B() : {
+} {
+    { 
+        EXPParser.ajouterNoeud("B");  // Ajouter un noeud B
+        augmenterProfondeur();  // Augmenter la profondeur
+    }
+    ( <REL> Y() | <ID> YPrime() )  // Options pour la règle B
+    { diminuerProfondeur(); }
+}
+
+// Règle de la méthode Y
+void Y() : {
+} {
+    { 
+        EXPParser.ajouterNoeud("Y");  // Ajouter un noeud Y
+        augmenterProfondeur();  // Augmenter la profondeur
+    }
+    ( S() APrime() <ID> BPrime() | APrime() <ID> BPrime() )  // Options pour la règle Y
+    { diminuerProfondeur(); }
+}
+
+// Règle de la méthode YPrime
+void YPrime() : {
+} {
+    { 
+        EXPParser.ajouterNoeud("Y'");  // Ajouter un noeud Y'
+        augmenterProfondeur();  // Augmenter la profondeur
+    }
+    ( S() BPrime() | BPrime() )  // Options pour la règle Y'
+    { diminuerProfondeur(); }
+}
+
+// Règle de la méthode BPrime
+void BPrime() : {
+} {
+    { 
+        EXPParser.ajouterNoeud("B'");  // Ajouter un noeud B'
+        augmenterProfondeur();  // Augmenter la profondeur
+    }
+    ( <OP> APrime() <ID> BPrime() | <DELIM2> A() <REL> Y() | { } )  // Options pour la règle B'
+    { diminuerProfondeur(); }
+}
